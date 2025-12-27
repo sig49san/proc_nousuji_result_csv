@@ -48,7 +48,7 @@ def process_csv(input_path, output_path, song_list_path):
          open(output_path, 'w', encoding='utf-8', newline='') as outfile:
         
         reader = csv.DictReader(infile)
-        fieldnames = reader.fieldnames
+        fieldnames = reader.fieldnames + ['guess_song_name', 'Left', 'Right', 'FLIP', 'LEGACY', 'A-SCR', 'clear_award']
         
         writer = csv.DictWriter(outfile, fieldnames=fieldnames)
         writer.writeheader()
@@ -64,7 +64,75 @@ def process_csv(input_path, output_path, song_list_path):
                 changed_count += 1
                 print(f"Mapped '{original_song}' -> '{normalized_song}'")
                 
-            row['song_name'] = normalized_song
+            row['guess_song_name'] = normalized_song
+            # row['song_name'] = normalized_song # Keep original song name as requested
+            
+            # Options parsing
+            opts = row.get('options', '')
+            opts = opts.replace('.',',')
+            
+            if opts == 'OFF':
+                row['Left'] = ''
+                row['Right'] = ''
+                row['FLIP'] = ''
+                row['LEGACY'] = ''
+                row['A-SCR'] = ''
+            else:
+                # 1. Flags
+                row['FLIP'] = 'FLIP' if 'FLIP' in opts else ''
+                row['LEGACY'] = 'LEGACY' if 'LEGACY' in opts else ''
+                row['A-SCR'] = 'A-SCR' if 'A-SCR' in opts else ''
+                
+                # 2. Left/Right
+                # Take the first part before any comma
+                main_opt = opts.split(',')[0].strip()
+                left_raw, right_raw = '', ''
+                
+                if '/' in main_opt:
+                    parts = main_opt.split('/', 1)
+                    left_raw = parts[0].strip()
+                    right_raw = parts[1].strip()
+                else:
+                    left_raw = main_opt
+                    right_raw = '' # Or should it be empty? Logic says "Other -> Empty", so if it was 'OFF' or 'RANDOM' (full) it defaults to empty unless matched? 
+                    # Wait, if main_opt is 'OFF', it goes to 'Other' -> Empty. Correct.
+                
+                mapping = {
+                    'RAN': 'RANDOM',
+                    'R-RAN': 'R-RANDOM',
+                    'S-RAN': 'S-RANDOM',
+                    'MIR': 'MIRROR'
+                }
+                
+                row['Left'] = mapping.get(left_raw, '')
+                row['Right'] = mapping.get(right_raw, '')
+
+            # Clear Award Logic
+            # Rank: F-COMBO > EXH-CLEAR > H-CLEAR > CLEAR > E-CLEAR > A-CLEAR > FAILED = NO PLAY
+            lamp_ranks = {
+                'F-COMBO': 6,
+                'EXH-CLEAR': 5,
+                'H-CLEAR': 4,
+                'CLEAR': 3,
+                'E-CLEAR': 2,
+                'A-CLEAR': 1,
+                'FAILED': 0,
+                'NO PLAY': 0,
+                '': 0
+            }
+            
+            # Helper to get rank, default to 0 if unknown
+            def get_rank(lamp):
+                return lamp_ranks.get(lamp, 0)
+
+            current_lamp = row.get('clear_lamp', '').strip()
+            best_lamp = row.get('best_clear_lamp', '').strip()
+            
+            if get_rank(current_lamp) > get_rank(best_lamp):
+                row['clear_award'] = current_lamp
+            else:
+                row['clear_award'] = ''
+
             writer.writerow(row)
             processed_count += 1
             
