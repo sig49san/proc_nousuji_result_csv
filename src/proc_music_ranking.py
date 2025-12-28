@@ -2,7 +2,7 @@ import csv
 import collections
 import os
 
-INPUT_FILE = 'result_summary_processed.csv'
+INPUT_FILE = '../output/result_summary_processed.csv'
 
 # Rank definitions for Clear Award (Same as previous script)
 LAMP_RANKS = {
