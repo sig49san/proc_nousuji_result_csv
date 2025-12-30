@@ -23,10 +23,6 @@ def process_options_and_awards(input_path, output_path):
             for f in original_fields:
                 new_fields.append(f)
                 seen_fields.add(f)
-                if f == 'clear_lamp':
-                    if 'play_format' not in seen_fields:
-                        new_fields.append('play_format')
-                        seen_fields.add('play_format')
 
             extras = ['Left', 'Right', 'FLIP', 'LEGACY', 'A-SCR', 'clear_award']
             for e in extras:
@@ -98,9 +94,6 @@ def process_options_and_awards(input_path, output_path):
                     row['clear_award'] = current_lamp
                 else:
                     row['clear_award'] = ''
-
-                # play_format
-                row['play_format'] = ''
 
             # Write output
             os.makedirs(os.path.dirname(output_path), exist_ok=True)

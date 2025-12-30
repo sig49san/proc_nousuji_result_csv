@@ -49,6 +49,7 @@ def process_ranking(input_file):
                 'FLIP': row['FLIP'],
                 'LEGACY': row['LEGACY'],
                 'A-SCR': row['A-SCR'],
+                'play_format': row['play_format'],
                 'clear_award': new_award
             }
             
@@ -68,6 +69,7 @@ def process_ranking(input_file):
                     current_record['FLIP'] = row['FLIP']
                     current_record['LEGACY'] = row['LEGACY']
                     current_record['A-SCR'] = row['A-SCR']
+                    current_record['play_format'] = row['play_format']
                     current_record['UserName'] = row['UserName'] # Update username too just in case
                 
                 # Check Clear Award Update
@@ -76,7 +78,7 @@ def process_ranking(input_file):
                      current_record['clear_award'] = new_award
                      
     # Output files
-    output_columns = ['UserName', 'TwitterID', 'score', 'Left', 'Right', 'FLIP', 'LEGACY', 'A-SCR', 'clear_award']
+    output_columns = ['UserName', 'TwitterID', 'score', 'Left', 'Right', 'FLIP', 'LEGACY', 'A-SCR','play_format', 'clear_award']
     
     for song_name, users in songs_data.items():
         # Sanitize filename just in case

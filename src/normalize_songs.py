@@ -47,29 +47,38 @@ def process_songs(input_path, output_path, song_list_path):
             rows = list(reader)
             original_fields = reader.fieldnames
             
-            # Construct new field order: insert guess_song_name after song_name
+            # Construct new field order:
+            # - insert 'guess_song_name' after 'song_name'
+            # - insert 'play_format' after 'clear_lamp'
             new_fields = []
-            if 'guess_song_name' in original_fields:
-                 new_fields = original_fields
+            # If fields already contain our new columns, keep original order
+            if 'guess_song_name' in original_fields or 'play_format' in original_fields:
+                new_fields = original_fields
             else:
                 for f in original_fields:
                     new_fields.append(f)
                     if f == 'song_name':
                         new_fields.append('guess_song_name')
-                
-                # Safety fallback if song_name not found
+                    if f == 'clear_lamp':
+                        new_fields.append('play_format')
+
+                # Safety fallback if expected insertions didn't occur
                 if 'guess_song_name' not in new_fields:
                     new_fields.append('guess_song_name')
+                if 'play_format' not in new_fields:
+                    new_fields.append('play_format')
 
             changed_count = 0
             for row in rows:
                 original_song = row['song_name']
                 normalized_song = get_best_match(original_song, standard_names)
-                
+
                 if normalized_song != original_song:
                     changed_count += 1
-                    
+
                 row['guess_song_name'] = normalized_song
+                # Ensure play_format exists and is an empty string
+                row['play_format'] = ''
             
             # Write output
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
