@@ -1,8 +1,11 @@
 import csv
 import collections
 import os
+import datetime
 
-INPUT_FILE = '../output/result_summary_processed.csv'
+# Resolve input file relative to project root (script location)
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+INPUT_FILE = os.path.join(PROJECT_ROOT, 'output', 'result_summary_processed.csv')
 
 # Rank definitions for Clear Award (Same as previous script)
 LAMP_RANKS = {
@@ -79,22 +82,30 @@ def process_ranking(input_file):
                      
     # Output files
     output_columns = ['UserName', 'TwitterID', 'score', 'Left', 'Right', 'FLIP', 'LEGACY', 'A-SCR','play_format', 'clear_award']
-    
+
+    # Determine project root and ensure Result directory exists
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+    result_dir = os.path.join(project_root, 'Result')
+    os.makedirs(result_dir, exist_ok=True)
+
+    # Timestamp for this run (same timestamp for all files in one execution)
+    timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+
     for song_name, users in songs_data.items():
         # Sanitize filename just in case
         safe_name = song_name.replace('/', '_') # Basic safety
-        filename = f"{safe_name}.csv"
-        
-        # Sort by score descending? User didn't specify sort order but ranking implies sorting.
-        # usually ranking is sorted. I will sort by score descending.
+        filename = f"{safe_name}_{timestamp}.csv"
+        filepath = os.path.join(result_dir, filename)
+
+        # Sort by score descending
         sorted_users = sorted(users.values(), key=lambda x: x['score'], reverse=True)
-        
-        with open(filename, 'w', encoding='utf-8', newline='') as outfile:
+
+        with open(filepath, 'w', encoding='utf-8', newline='') as outfile:
             writer = csv.DictWriter(outfile, fieldnames=output_columns)
             writer.writeheader()
             writer.writerows(sorted_users)
-            
-        print(f"Created {filename} with {len(sorted_users)} records.")
+
+        print(f"Created {filepath} with {len(sorted_users)} records.")
 
 if __name__ == "__main__":
     process_ranking(INPUT_FILE)
