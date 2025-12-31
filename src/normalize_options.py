@@ -30,7 +30,7 @@ def process_options_and_awards(input_path, output_path):
                     new_fields.append(e)
                     seen_fields.add(e)
 
-            # Mapping for abbreviations
+            # Mapping for abbreviations; unknown tokens will be preserved
             mapping = {
                 'RAN': 'RANDOM',
                 'R-RAN': 'R-RANDOM',
@@ -83,8 +83,9 @@ def process_options_and_awards(input_path, output_path):
                         left_raw = main_opt
                         right_raw = ''
                     
-                    row['Left'] = mapping.get(left_raw, '')
-                    row['Right'] = mapping.get(right_raw, '')
+                    # Preserve tokens that are not in mapping (avoid losing info)
+                    row['Left'] = mapping.get(left_raw, left_raw)
+                    row['Right'] = mapping.get(right_raw, right_raw)
 
                 # Clear Award Logic
                 current_lamp = row.get('clear_lamp', '').strip()

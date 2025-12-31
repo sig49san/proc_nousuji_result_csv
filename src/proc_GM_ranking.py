@@ -40,6 +40,8 @@ def build_grandmaster(input_csv, input_json, output_file):
     name_to_no, notes_by_no, song_nos = load_song_list(input_json)
 
     users = {}
+    # Collect history entries keyed by Tweet_URL (if present) or generated unique key
+    history_entries = {}
 
     with open(input_csv, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
@@ -55,6 +57,9 @@ def build_grandmaster(input_csv, input_json, output_file):
             except Exception:
                 score = 0
             comment = row.get('Post_Content', '').strip()
+            # capture submission date/time for history (prefer latest)
+            sub_date = row.get('submission_date', '').strip()
+            sub_time = row.get('submission_time', '').strip()
 
             # Only consider songs that are in the selected list
             if guess_song not in name_to_no:
@@ -66,7 +71,9 @@ def build_grandmaster(input_csv, input_json, output_file):
                     'UserName': user_name,
                     'SNS': twitter_id,
                     'scores': {},  # song_no -> best score
-                    'comments': []
+                    'comments': [],
+                    'last_submission_date': sub_date,
+                    'last_submission_time': sub_time
                 }
             user = users[twitter_id]
             # keep first seen UserName if empty later rows
@@ -82,6 +89,40 @@ def build_grandmaster(input_csv, input_json, output_file):
             if comment:
                 if comment not in user['comments']:
                     user['comments'].append(comment)
+
+            # update last submission date/time to the latest seen
+            if sub_date:
+                # compare tuple (date, time)
+                prev_date = user.get('last_submission_date', '')
+                prev_time = user.get('last_submission_time', '')
+                if (sub_date, sub_time) > (prev_date, prev_time):
+                    user['last_submission_date'] = sub_date
+                    user['last_submission_time'] = sub_time
+
+            # Build history entry per Tweet_URL; if Tweet_URL missing, create unique key
+            tweet_url = row.get('Tweet_URL', '').strip()
+            key = tweet_url if tweet_url else f"{twitter_id}|{sub_date}|{sub_time}|{len(history_entries)}"
+            if key not in history_entries:
+                history_entries[key] = {
+                    'submission_date': sub_date,
+                    'submission_time': sub_time,
+                    'UserName': user_name,
+                    'SNS': twitter_id,
+                    'comments': [],
+                    'rates': {}
+                }
+            hent = history_entries[key]
+            if comment and comment not in hent['comments']:
+                hent['comments'].append(comment)
+            # compute rate for this song_no and store
+            if guess_song in name_to_no:
+                no = name_to_no[guess_song]
+                notes = notes_by_no.get(no, 0)
+                try:
+                    rate = score / (notes * 2) if notes else 0.0
+                except Exception:
+                    rate = 0.0
+                hent['rates'][no] = rate
 
     # Prepare header (add total_score after song columns)
     header = ['UserName'] + [f'song_no{no}' for no in song_nos] + ['total_score', 'SNS', 'Comment']
@@ -125,6 +166,34 @@ def build_grandmaster(input_csv, input_json, output_file):
             writer.writerow(formatted)
 
     print(f'Created {output_file} with {len(users)} records.')
+
+    # Also write a history file per tweet (do not collapse same user; merge rows with same Tweet_URL)
+    history_file = os.path.join(RESULT_DIR, f'GrandMaster_history_{timestamp}.csv')
+    history_header = ['submission_date', 'submission_time', 'UserName'] + [f'song_no{no}' for no in song_nos] + ['total_score', 'SNS', 'Comment']
+    # Sort history entries by submission_date then submission_time
+    sorted_entries = sorted(history_entries.values(), key=lambda e: (e.get('submission_date',''), e.get('submission_time','')))
+    with open(history_file, 'w', encoding='utf-8', newline='') as hf:
+        hwriter = csv.writer(hf)
+        hwriter.writerow(history_header)
+        for hent in sorted_entries:
+            row_vals = [hent.get('submission_date',''), hent.get('submission_time',''), hent.get('UserName','')]
+            total = 0.0
+            per_rates = []
+            for no in song_nos:
+                rate = hent['rates'].get(no)
+                if rate is None:
+                    per_rates.append('')
+                else:
+                    per_rates.append(f'{rate:.4f}')
+                    total += rate
+            row_vals += per_rates
+            row_vals.append(f'{total:.4f}')
+            row_vals.append(hent.get('SNS',''))
+            comment_text = ' | '.join(hent['comments']) if hent.get('comments') else ''
+            row_vals.append(comment_text)
+            hwriter.writerow(row_vals)
+
+    print(f'Created {history_file} with {len(sorted_entries)} records.')
 
 
 if __name__ == '__main__':

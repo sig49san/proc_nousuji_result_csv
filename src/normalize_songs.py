@@ -2,20 +2,45 @@ import csv
 import difflib
 import sys
 import os
+import json
 
 # Files
 INPUT_FILE = '../input/result_summary.csv'
 OUTPUT_FILE = '../output/intermediate_songs.csv'
-SONG_LIST_FILE = '../input/song_name_list.txt'
+# Prefer JSON song list (selected_songs), fallback to text list
+SONG_LIST_FILE = '../input/song_list.json'
+SONG_LIST_TXT_FALLBACK = '../input/song_name_list.txt'
 
-def load_song_names(filepath):
-    """Load standardized song names from a file."""
+def load_song_names(filepath_json, fallback_txt=None):
+    """Load standardized song names. Try JSON `selected_songs` first, then fallback to txt list."""
+    names = []
+    # Try JSON first
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            return [line.strip() for line in f if line.strip()]
+        if filepath_json and os.path.exists(filepath_json):
+            with open(filepath_json, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            songs = data.get('selected_songs') or []
+            for s in songs:
+                name = s.get('song_name') if isinstance(s, dict) else None
+                if name:
+                    names.append(str(name).strip())
+            if names:
+                return names
+    except Exception:
+        # If JSON is malformed or missing, fall through to txt
+        pass
+
+    # Fallback to txt file list
+    txt_path = fallback_txt or SONG_LIST_TXT_FALLBACK
+    try:
+        if txt_path and os.path.exists(txt_path):
+            with open(txt_path, 'r', encoding='utf-8') as f:
+                return [line.strip() for line in f if line.strip()]
     except FileNotFoundError:
-        print(f"Error: Song list file not found at {filepath}")
-        return []
+        pass
+
+    print(f"Warning: No song list found at {filepath_json} or {txt_path}")
+    return []
 
 def get_best_match(name, candidates):
     """
@@ -38,7 +63,8 @@ def get_best_match(name, candidates):
     return name
 
 def process_songs(input_path, output_path, song_list_path):
-    standard_names = load_song_names(song_list_path)
+    # song_list_path may be a JSON path; provide fallback txt constant
+    standard_names = load_song_names(song_list_path, SONG_LIST_TXT_FALLBACK)
     print(f"Loaded {len(standard_names)} standard song names.")
     
     try:
