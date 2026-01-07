@@ -4,14 +4,14 @@
         {"song_no":1,
             "song_name": "INFERNO",
         "chart_notes": 1175},
+                {"song_no":2,
+            "song_name": "冬椿 ft. Kanae Asaba",
+        "chart_notes": 1509},
         {"song_no":3,
             "song_name": "Nothing but Theory",
         "chart_notes": 1397},
         {"song_no":4,
             "song_name": "Rubrum Piano",
-        "chart_notes": 1244},
-        {"song_no":2,
-            "song_name": "冬椿 ft. Kanae Asaba",
-        "chart_notes": 1509}
+        "chart_notes": 1244}
     ]
 }

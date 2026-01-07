@@ -4,7 +4,15 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "google>=3.0.0",
+    "google-auth>=2.47.0",
+    "google-genai>=1.56.0",
+    "gspread>=6.2.1",
+    "gspread-dataframe>=4.0.0",
+    "marimo>=0.18.4",
+    "pandas>=2.3.3",
+]
 
 [dependency-groups]
 dev = [
