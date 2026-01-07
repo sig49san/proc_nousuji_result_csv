@@ -39,7 +39,16 @@ def _(json, pd):
     #楽曲データの読み込み
     file = open('input/song_list.json', 'r')
     music_json = json.load(file)
-    return df_ir_user_name, music_json
+
+    # 楽曲データの辞書化
+    song_dict = {
+        song["song_name"]:{
+            "song_no":song["song_no"],
+            "chart_notes":song["chart_notes"]
+        }
+        for song in music_json["selected_songs"]
+    }
+    return df_ir_user_name, music_json, song_dict
 
 
 @app.cell
@@ -54,13 +63,62 @@ def _(df_ir_user_name, pd, worksheet):
 
 
 @app.cell
-def _(df, df_song, set_with_dataframe, spreadsheet):
+def _(df):
     # 脳筋IR結果シート更新用に、時間順にデータ抽出
     df_for_update = df.loc[:,["submission_date","submission_time","TwitterID", 'guess_song_name',"IRUserName", "score","Left", "Right","FLIP","LEGACY","A-SCR","play_format", "clear_award"]]
     df_for_update
+    return (df_for_update,)
 
+
+@app.cell
+def _(df_for_update, df_song, set_with_dataframe, spreadsheet):
+    # スプレッドシートにシート出力
     writesheet_for_update = spreadsheet.add_worksheet(title='for_update', rows=df_song.shape[1], cols=df_song.shape[0])
     set_with_dataframe(writesheet_for_update, df_for_update, row=1, col=1)
+    return
+
+
+@app.cell
+def _(df, pd, song_dict):
+    # GrandMasterの更新用
+    gm_for_update_columns = ["submission_date","submission_time","IRUserName","song_no1","song_no2","song_no3","song_no4","total_score","SNS","Comment"]
+    list_grandmaster_for_update = []
+
+    # 1ツイート用の箱
+    gm_up = ["","","",0.0,0.0,0.0,0.0,0.0,"",""]
+
+
+    for index, row in df.iterrows():
+        if index != 0 and not (gm_up[0] == row["submission_date"] and gm_up[1] == row["submission_time"] and gm_up[8] == row["TwitterID"] and gm_up[9] == row["Post_Content"]):
+            print(index, gm_up)
+            list_grandmaster_for_update.append(gm_up)
+            # 箱を初期化
+            gm_up = ["","","",0.0,0.0,0.0,0.0,0.0,"",""]
+
+        guess_song_name = row['guess_song_name']
+        song_no = song_dict[guess_song_name]["song_no"]
+        chart_notes = song_dict[guess_song_name]["chart_notes"]
+
+        gm_up[0] = row["submission_date"]
+        gm_up[1] = row["submission_time"]
+        gm_up[2] = row["IRUserName"]
+        gm_up[3] = row["score"] / (chart_notes * 2) if song_no == 1 else gm_up[3]
+        gm_up[4] = row["score"] / (chart_notes * 2) if song_no == 2 else gm_up[4]
+        gm_up[5] = row["score"] / (chart_notes * 2) if song_no == 3 else gm_up[5]
+        gm_up[6] = row["score"] / (chart_notes * 2) if song_no == 4 else gm_up[6]
+        gm_up[7] = gm_up[3] + gm_up[4] + gm_up[5] + gm_up[6]
+        gm_up[8] = row["TwitterID"]
+        gm_up[9] = row["Post_Content"]
+    
+    df_grandmaster_for_update = pd.DataFrame(list_grandmaster_for_update, columns=gm_for_update_columns)
+    return (df_grandmaster_for_update,)
+
+
+@app.cell
+def _(df_grandmaster_for_update, df_song, set_with_dataframe, spreadsheet):
+    # スプレッドシートにシート出力
+    writesheet_GM_for_update = spreadsheet.add_worksheet(title='for_update_GM', rows=df_song.shape[1], cols=df_song.shape[0])
+    set_with_dataframe(writesheet_GM_for_update, df_grandmaster_for_update, row=1, col=1)
     return
 
 
