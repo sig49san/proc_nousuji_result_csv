@@ -36,6 +36,7 @@ def _(json, pd):
     df_ir_user_name = pd.read_csv('input/user_name.csv')
     df_ir_user_name
 
+    #楽曲データの読み込み
     file = open('input/song_list.json', 'r')
     music_json = json.load(file)
     return df_ir_user_name, music_json
@@ -53,7 +54,18 @@ def _(df_ir_user_name, pd, worksheet):
 
 
 @app.cell
-def _(df, music_json, pd):
+def _(df, df_song, set_with_dataframe, spreadsheet):
+    # 脳筋IR結果シート更新用に、時間順にデータ抽出
+    df_for_update = df.loc[:,["submission_date","submission_time","TwitterID", 'guess_song_name',"IRUserName", "score","Left", "Right","FLIP","LEGACY","A-SCR","play_format", "clear_award"]]
+    df_for_update
+
+    writesheet_for_update = spreadsheet.add_worksheet(title='for_update', rows=df_song.shape[1], cols=df_song.shape[0])
+    set_with_dataframe(writesheet_for_update, df_for_update, row=1, col=1)
+    return
+
+
+@app.cell
+def _(df, music_json, pd, set_with_dataframe, spreadsheet):
     # INFERNOの結果
     # クリアランプの優先順位
     LAMP_RANKS = {
@@ -88,15 +100,10 @@ def _(df, music_json, pd):
         df_song = pd.merge(df_song_score, df_song_clear)
         df_song_list.append(df_song)
 
+        writesheet = spreadsheet.add_worksheet(title=song_name+'_Latest', rows=df_song.shape[1], cols=df_song.shape[0])
+        set_with_dataframe(writesheet, df_song, row=1, col=1)
     df_song_list
     return (df_song,)
-
-
-@app.cell
-def _(df_song, set_with_dataframe, spreadsheet):
-    writesheet = spreadsheet.add_worksheet(title='INFERNO_Latest', rows=df_song.shape[1], cols=df_song.shape[0])
-    set_with_dataframe(writesheet, df_song, row=1, col=1)
-    return
 
 
 if __name__ == "__main__":
