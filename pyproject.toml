@@ -10,6 +10,7 @@ dependencies = [
     "google-genai>=1.56.0",
     "gspread>=6.2.1",
     "gspread-dataframe>=4.0.0",
+    "logging>=0.4.9.6",
     "marimo>=0.18.4",
     "pandas>=2.3.3",
 ]

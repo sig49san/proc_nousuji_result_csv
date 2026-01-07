@@ -6,12 +6,14 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
+    import logging
     import pandas as pd
     from google.oauth2 import service_account
     import gspread
     from gspread_dataframe import set_with_dataframe
     import json
-    return gspread, json, pd, service_account, set_with_dataframe
+    logging.basicConfig(level=logging.INFO)
+    return gspread, json, logging, pd, service_account, set_with_dataframe
 
 
 @app.cell
@@ -37,8 +39,8 @@ def _(json, pd):
     df_ir_user_name
 
     #楽曲データの読み込み
-    file = open('input/song_list.json', 'r')
-    music_json = json.load(file)
+    with open('input/song_list.json', 'r') as f:
+        music_json = json.load(f)
 
     # 楽曲データの辞書化
     song_dict = {
@@ -54,11 +56,17 @@ def _(json, pd):
 @app.cell
 def _(df_ir_user_name, pd, worksheet):
     # googleスプレッドシートの読み込み
-    df = pd.DataFrame(worksheet.get_values()[1:], columns=worksheet.get_values()[0])
+    values = worksheet.get_values()
+    if not values:
+        df = pd.DataFrame()
+    else:
+        header = values[0]
+        data = values[1:]
+        df = pd.DataFrame(data, columns=header)
     df = pd.merge(df, df_ir_user_name, how="left")
-    df["best_score"] = df["best_score"].astype(int)
-    df["score"] = df["score"].astype(int)
-    df.fillna("")
+    df["best_score"] = pd.to_numeric(df.get("best_score", None), errors="coerce").fillna(0).astype(int)
+    df["score"] = pd.to_numeric(df.get("score", None), errors="coerce").fillna(0).astype(int)
+    df.fillna("", inplace=True)
     return (df,)
 
 
@@ -71,15 +79,15 @@ def _(df):
 
 
 @app.cell
-def _(df_for_update, df_song, set_with_dataframe, spreadsheet):
+def _(df_for_update, set_with_dataframe, spreadsheet):
     # スプレッドシートにシート出力
-    writesheet_for_update = spreadsheet.add_worksheet(title='for_update', rows=df_song.shape[1], cols=df_song.shape[0])
+    writesheet_for_update = spreadsheet.add_worksheet(title='for_update', rows=df_for_update.shape[0], cols=df_for_update.shape[1])
     set_with_dataframe(writesheet_for_update, df_for_update, row=1, col=1)
     return
 
 
 @app.cell
-def _(df, pd, song_dict):
+def _(df, logging, pd, song_dict):
     # GrandMasterの更新用
     gm_for_update_columns = ["submission_date","submission_time","IRUserName","song_no1","song_no2","song_no3","song_no4","total_score","SNS","Comment"]
     list_grandmaster_for_update = []
@@ -90,7 +98,7 @@ def _(df, pd, song_dict):
 
     for index, row in df.iterrows():
         if index != 0 and not (gm_up[0] == row["submission_date"] and gm_up[1] == row["submission_time"] and gm_up[8] == row["TwitterID"] and gm_up[9] == row["Post_Content"]):
-            print(index, gm_up)
+            logging.info("Appending GM group at index %s", index)
             list_grandmaster_for_update.append(gm_up)
             # 箱を初期化
             gm_up = ["","","",0.0,0.0,0.0,0.0,0.0,"",""]
@@ -98,26 +106,31 @@ def _(df, pd, song_dict):
         guess_song_name = row['guess_song_name']
         song_no = song_dict[guess_song_name]["song_no"]
         chart_notes = song_dict[guess_song_name]["chart_notes"]
+        dj_auto = chart_notes * 2
 
         gm_up[0] = row["submission_date"]
         gm_up[1] = row["submission_time"]
         gm_up[2] = row["IRUserName"]
-        gm_up[3] = row["score"] / (chart_notes * 2) if song_no == 1 else gm_up[3]
-        gm_up[4] = row["score"] / (chart_notes * 2) if song_no == 2 else gm_up[4]
-        gm_up[5] = row["score"] / (chart_notes * 2) if song_no == 3 else gm_up[5]
-        gm_up[6] = row["score"] / (chart_notes * 2) if song_no == 4 else gm_up[6]
+        gm_up[3] = row["score"] / dj_auto if song_no == 1 else gm_up[3]
+        gm_up[4] = row["score"] / dj_auto if song_no == 2 else gm_up[4]
+        gm_up[5] = row["score"] / dj_auto if song_no == 3 else gm_up[5]
+        gm_up[6] = row["score"] / dj_auto if song_no == 4 else gm_up[6]
         gm_up[7] = gm_up[3] + gm_up[4] + gm_up[5] + gm_up[6]
         gm_up[8] = row["TwitterID"]
         gm_up[9] = row["Post_Content"]
-    
+
+    # ループ終了後に残りのグループを追加（最後の投稿分）
+    if any([gm_up[0], gm_up[1], gm_up[2], gm_up[3], gm_up[4], gm_up[5], gm_up[6], gm_up[8], gm_up[9]]):
+        list_grandmaster_for_update.append(gm_up)
+
     df_grandmaster_for_update = pd.DataFrame(list_grandmaster_for_update, columns=gm_for_update_columns)
     return (df_grandmaster_for_update,)
 
 
 @app.cell
-def _(df_grandmaster_for_update, df_song, set_with_dataframe, spreadsheet):
+def _(df_grandmaster_for_update, set_with_dataframe, spreadsheet):
     # スプレッドシートにシート出力
-    writesheet_GM_for_update = spreadsheet.add_worksheet(title='for_update_GM', rows=df_song.shape[1], cols=df_song.shape[0])
+    writesheet_GM_for_update = spreadsheet.add_worksheet(title='for_update_GM', rows=df_grandmaster_for_update.shape[0], cols=df_grandmaster_for_update.shape[1])
     set_with_dataframe(writesheet_GM_for_update, df_grandmaster_for_update, row=1, col=1)
     return
 
@@ -158,10 +171,10 @@ def _(df, music_json, pd, set_with_dataframe, spreadsheet):
         df_song = pd.merge(df_song_score, df_song_clear)
         df_song_list.append(df_song)
 
-        writesheet = spreadsheet.add_worksheet(title=song_name+'_Latest', rows=df_song.shape[1], cols=df_song.shape[0])
+        writesheet = spreadsheet.add_worksheet(title=song_name+'_Latest', rows=df_song.shape[0], cols=df_song.shape[1])
         set_with_dataframe(writesheet, df_song, row=1, col=1)
     df_song_list
-    return (df_song,)
+    return
 
 
 if __name__ == "__main__":
